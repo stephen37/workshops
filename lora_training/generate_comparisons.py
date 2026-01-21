@@ -44,10 +44,13 @@ GEN_KWARGS = {
     "guidance_scale": 4.0,
 }
 
-def generate_with_lora(prompt, lora_path=None):
+def generate_with_lora(prompt, lora_name=None):
     """Generate an image, optionally with a LoRA."""
-    if lora_path and lora_path.exists():
-        pipe.load_lora_weights(str(lora_path))
+    if lora_name:
+        lora_path = LORA_DIR / lora_name
+        weight_file = f"{lora_name}.safetensors"
+        if lora_path.exists() and (lora_path / weight_file).exists():
+            pipe.load_lora_weights(str(lora_path), weight_name=weight_file)
 
     image = pipe(
         prompt=prompt,
@@ -55,8 +58,11 @@ def generate_with_lora(prompt, lora_path=None):
         **GEN_KWARGS
     ).images[0]
 
-    if lora_path and lora_path.exists():
-        pipe.unload_lora_weights()
+    if lora_name:
+        try:
+            pipe.unload_lora_weights()
+        except:
+            pass
 
     return image
 
@@ -67,12 +73,13 @@ def generate_rank_comparison():
     prompt = "filmlut, cinematic portrait of a woman in golden hour light"
 
     ranks = [8, 16, 32, 64]
+    print("  Generating baseline (no LoRA)...")
     images = {"baseline": generate_with_lora(prompt, None)}
 
     for rank in ranks:
-        lora_path = LORA_DIR / f"filmlut_r{rank}_s500"
+        lora_name = f"filmlut_r{rank}_s500"
         print(f"  Generating rank {rank}...")
-        images[f"r{rank}"] = generate_with_lora(prompt, lora_path)
+        images[f"r{rank}"] = generate_with_lora(prompt, lora_name)
 
     # Plot
     fig, axes = plt.subplots(1, 5, figsize=(20, 4))
@@ -98,12 +105,13 @@ def generate_steps_comparison():
     prompt = "filmlut, cinematic portrait of a woman in golden hour light"
 
     steps_list = [250, 500, 1000]
+    print("  Generating baseline (no LoRA)...")
     images = {"baseline": generate_with_lora(prompt, None)}
 
     for steps in steps_list:
-        lora_path = LORA_DIR / f"filmlut_r32_s{steps}"
+        lora_name = f"filmlut_r32_s{steps}"
         print(f"  Generating {steps} steps...")
-        images[f"s{steps}"] = generate_with_lora(prompt, lora_path)
+        images[f"s{steps}"] = generate_with_lora(prompt, lora_name)
 
     # Plot
     fig, axes = plt.subplots(1, 4, figsize=(16, 4))
@@ -133,12 +141,12 @@ def generate_overfitting_test():
         ("no_trigger", "portrait of a man in natural light"),
     ]
 
-    lora_path = LORA_DIR / "filmlut_r32_s1000"
+    lora_name = "filmlut_r32_s1000"
     images = {}
 
     for key, prompt in test_prompts:
         print(f"  Testing: {key}")
-        images[key] = generate_with_lora(prompt, lora_path)
+        images[key] = generate_with_lora(prompt, lora_name)
 
     # Plot
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -169,9 +177,9 @@ def generate_full_grid():
     images = {}
     for rank in ranks:
         for steps in steps_list:
-            lora_path = LORA_DIR / f"filmlut_r{rank}_s{steps}"
+            lora_name = f"filmlut_r{rank}_s{steps}"
             print(f"  Generating r{rank}_s{steps}...")
-            images[(rank, steps)] = generate_with_lora(prompt, lora_path)
+            images[(rank, steps)] = generate_with_lora(prompt, lora_name)
 
     # Plot grid
     fig, axes = plt.subplots(4, 3, figsize=(12, 16))
