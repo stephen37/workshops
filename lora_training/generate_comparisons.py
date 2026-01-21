@@ -1,96 +1,69 @@
 #!/usr/bin/env python3
 """
-Generate comparison images for workshop slides.
-Run this on Runpod after training completes.
+Generate comparison images using AI Toolkit's training samples.
+No inference needed - just assembles the samples that were already generated.
 
 Usage:
     cd /workspace/workshops/lora_training
-    source /workspace/ai-toolkit/venv/bin/activate
     python generate_comparisons.py
 """
 
-import torch
-from diffusers import Flux2KleinPipeline
 from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
+import glob
 
 # Paths
 LORA_DIR = Path("/workspace/lora_outputs")
 OUTPUT_DIR = Path("/workspace/comparison_assets")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# Device and dtype
-device = "cuda"
-dtype = torch.bfloat16
 
-# Load pipeline
-print("Loading FLUX.2 Klein Base...")
-pipe = Flux2KleinPipeline.from_pretrained(
-    "black-forest-labs/FLUX.2-klein-base-4B",
-    torch_dtype=dtype
-)
-pipe.enable_model_cpu_offload()
-print("Pipeline ready!")
+def get_final_sample(lora_name):
+    """Get the last sample image from a training run."""
+    sample_dir = LORA_DIR / lora_name / "samples"
+    if not sample_dir.exists():
+        print(f"    Warning: No samples found for {lora_name}")
+        return None
 
-# Fixed generation settings
-def get_generator():
-    return torch.Generator(device=device).manual_seed(42)
+    # Get all sample images, sort by name (which includes step number)
+    samples = sorted(sample_dir.glob("*.png"))
+    if not samples:
+        print(f"    Warning: No PNG files in {sample_dir}")
+        return None
 
-GEN_KWARGS = {
-    "height": 1024,
-    "width": 1024,
-    "num_inference_steps": 50,
-    "guidance_scale": 4.0,
-}
-
-def generate_with_lora(prompt, lora_name=None):
-    """Generate an image, optionally with a LoRA."""
-    if lora_name:
-        lora_path = LORA_DIR / lora_name
-        weight_file = f"{lora_name}.safetensors"
-        if lora_path.exists() and (lora_path / weight_file).exists():
-            pipe.load_lora_weights(str(lora_path), weight_name=weight_file)
-
-    image = pipe(
-        prompt=prompt,
-        generator=get_generator(),
-        **GEN_KWARGS
-    ).images[0]
-
-    if lora_name:
-        try:
-            pipe.unload_lora_weights()
-        except:
-            pass
-
-    return image
+    # Return the last (highest step) sample
+    return Image.open(samples[-1])
 
 
 def generate_rank_comparison():
-    """Compare different ranks at 500 steps."""
+    """Compare different ranks at 500 steps using training samples."""
     print("\n=== Generating Rank Comparison ===")
-    prompt = "filmlut, cinematic portrait of a woman in golden hour light"
 
     ranks = [8, 16, 32, 64]
-    print("  Generating baseline (no LoRA)...")
-    images = {"baseline": generate_with_lora(prompt, None)}
+    images = {}
 
     for rank in ranks:
         lora_name = f"filmlut_r{rank}_s500"
-        print(f"  Generating rank {rank}...")
-        images[f"r{rank}"] = generate_with_lora(prompt, lora_name)
+        print(f"  Loading samples for rank {rank}...")
+        images[f"r{rank}"] = get_final_sample(lora_name)
+
+    # Filter out None values
+    valid_ranks = [r for r in ranks if images.get(f"r{r}") is not None]
+
+    if not valid_ranks:
+        print("  No valid samples found!")
+        return
 
     # Plot
-    fig, axes = plt.subplots(1, 5, figsize=(20, 4))
-    axes[0].imshow(images["baseline"])
-    axes[0].set_title("No LoRA\n(baseline)", fontsize=11)
-    axes[0].axis('off')
+    fig, axes = plt.subplots(1, len(valid_ranks), figsize=(5*len(valid_ranks), 5))
+    if len(valid_ranks) == 1:
+        axes = [axes]
 
-    for i, rank in enumerate(ranks):
-        axes[i+1].imshow(images[f"r{rank}"])
-        axes[i+1].set_title(f"Rank {rank}\n(500 steps)", fontsize=11)
-        axes[i+1].axis('off')
+    for i, rank in enumerate(valid_ranks):
+        axes[i].imshow(images[f"r{rank}"])
+        axes[i].set_title(f"Rank {rank}\n(500 steps)", fontsize=12)
+        axes[i].axis('off')
 
     plt.suptitle("Effect of Rank on Style Transfer", fontsize=14, fontweight='bold')
     plt.tight_layout()
@@ -102,27 +75,29 @@ def generate_rank_comparison():
 def generate_steps_comparison():
     """Compare different step counts at rank 32."""
     print("\n=== Generating Steps Comparison ===")
-    prompt = "filmlut, cinematic portrait of a woman in golden hour light"
 
     steps_list = [250, 500, 1000]
-    print("  Generating baseline (no LoRA)...")
-    images = {"baseline": generate_with_lora(prompt, None)}
+    images = {}
 
     for steps in steps_list:
         lora_name = f"filmlut_r32_s{steps}"
-        print(f"  Generating {steps} steps...")
-        images[f"s{steps}"] = generate_with_lora(prompt, lora_name)
+        print(f"  Loading samples for {steps} steps...")
+        images[f"s{steps}"] = get_final_sample(lora_name)
 
-    # Plot
-    fig, axes = plt.subplots(1, 4, figsize=(16, 4))
-    axes[0].imshow(images["baseline"])
-    axes[0].set_title("No LoRA\n(baseline)", fontsize=11)
-    axes[0].axis('off')
+    valid_steps = [s for s in steps_list if images.get(f"s{s}") is not None]
 
-    for i, steps in enumerate(steps_list):
-        axes[i+1].imshow(images[f"s{steps}"])
-        axes[i+1].set_title(f"{steps} steps\n(rank 32)", fontsize=11)
-        axes[i+1].axis('off')
+    if not valid_steps:
+        print("  No valid samples found!")
+        return
+
+    fig, axes = plt.subplots(1, len(valid_steps), figsize=(5*len(valid_steps), 5))
+    if len(valid_steps) == 1:
+        axes = [axes]
+
+    for i, steps in enumerate(valid_steps):
+        axes[i].imshow(images[f"s{steps}"])
+        axes[i].set_title(f"{steps} steps\n(rank 32)", fontsize=12)
+        axes[i].axis('off')
 
     plt.suptitle("Effect of Training Steps", fontsize=14, fontweight='bold')
     plt.tight_layout()
@@ -131,45 +106,9 @@ def generate_steps_comparison():
     print(f"  Saved: {OUTPUT_DIR / 'steps_comparison.png'}")
 
 
-def generate_overfitting_test():
-    """Test if LoRA still follows prompts."""
-    print("\n=== Generating Overfitting Test ===")
-
-    test_prompts = [
-        ("with_trigger", "filmlut, landscape photograph of mountains at sunset"),
-        ("style_change", "filmlut, watercolor painting of a cat"),
-        ("no_trigger", "portrait of a man in natural light"),
-    ]
-
-    lora_name = "filmlut_r32_s1000"
-    images = {}
-
-    for key, prompt in test_prompts:
-        print(f"  Testing: {key}")
-        images[key] = generate_with_lora(prompt, lora_name)
-
-    # Plot
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    titles = ["With Trigger\n(should show style)",
-              "Style Change\n(should mix both)",
-              "No Trigger\n(should NOT show style)"]
-
-    for i, (key, _) in enumerate(test_prompts):
-        axes[i].imshow(images[key])
-        axes[i].set_title(titles[i], fontsize=11)
-        axes[i].axis('off')
-
-    plt.suptitle("Overfitting Test: Does LoRA Still Follow Prompts?", fontsize=14, fontweight='bold')
-    plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "overfitting_test.png", dpi=150, bbox_inches='tight')
-    plt.close()
-    print(f"  Saved: {OUTPUT_DIR / 'overfitting_test.png'}")
-
-
 def generate_full_grid():
-    """Generate full 4x3 grid of all variants."""
+    """Generate full grid of all variants."""
     print("\n=== Generating Full Grid ===")
-    prompt = "filmlut, cinematic portrait of a woman in golden hour light"
 
     ranks = [8, 16, 32, 64]
     steps_list = [250, 500, 1000]
@@ -178,15 +117,27 @@ def generate_full_grid():
     for rank in ranks:
         for steps in steps_list:
             lora_name = f"filmlut_r{rank}_s{steps}"
-            print(f"  Generating r{rank}_s{steps}...")
-            images[(rank, steps)] = generate_with_lora(prompt, lora_name)
+            print(f"  Loading r{rank}_s{steps}...")
+            images[(rank, steps)] = get_final_sample(lora_name)
+
+    # Check what we have
+    valid_count = sum(1 for img in images.values() if img is not None)
+    print(f"  Found {valid_count}/12 valid samples")
+
+    if valid_count == 0:
+        print("  No valid samples found!")
+        return
 
     # Plot grid
     fig, axes = plt.subplots(4, 3, figsize=(12, 16))
 
     for i, rank in enumerate(ranks):
         for j, steps in enumerate(steps_list):
-            axes[i, j].imshow(images[(rank, steps)])
+            img = images.get((rank, steps))
+            if img:
+                axes[i, j].imshow(img)
+            else:
+                axes[i, j].text(0.5, 0.5, "N/A", ha='center', va='center', fontsize=20)
             axes[i, j].axis('off')
             if i == 0:
                 axes[i, j].set_title(f"{steps} steps", fontsize=12, fontweight='bold')
@@ -203,21 +154,69 @@ def generate_full_grid():
     print(f"  Saved: {OUTPUT_DIR / 'full_grid.png'}")
 
 
+def generate_training_progression():
+    """Show how training progresses over steps for one config."""
+    print("\n=== Generating Training Progression ===")
+
+    # Pick r32_s1000 as it has the most samples
+    lora_name = "filmlut_r32_s1000"
+    sample_dir = LORA_DIR / lora_name / "samples"
+
+    if not sample_dir.exists():
+        print(f"  No samples found for {lora_name}")
+        return
+
+    samples = sorted(sample_dir.glob("*.png"))
+    if len(samples) < 3:
+        print("  Not enough samples for progression")
+        return
+
+    # Pick evenly spaced samples
+    n_samples = min(5, len(samples))
+    indices = [int(i * (len(samples)-1) / (n_samples-1)) for i in range(n_samples)]
+    selected = [samples[i] for i in indices]
+
+    fig, axes = plt.subplots(1, n_samples, figsize=(4*n_samples, 4))
+
+    for i, sample_path in enumerate(selected):
+        img = Image.open(sample_path)
+        axes[i].imshow(img)
+        # Extract step from filename
+        step = sample_path.stem.split('_')[-1] if '_' in sample_path.stem else str(i)
+        axes[i].set_title(f"Step {step}", fontsize=11)
+        axes[i].axis('off')
+
+    plt.suptitle("Training Progression (Rank 32)", fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(OUTPUT_DIR / "training_progression.png", dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"  Saved: {OUTPUT_DIR / 'training_progression.png'}")
+
+
 def main():
     print("="*50)
     print("Generating Workshop Comparison Assets")
+    print("Using training samples (no inference needed)")
     print("="*50)
+
+    # List what we have
+    print("\nAvailable LoRA outputs:")
+    for d in sorted(LORA_DIR.iterdir()):
+        if d.is_dir():
+            samples = list((d / "samples").glob("*.png")) if (d / "samples").exists() else []
+            print(f"  {d.name}: {len(samples)} samples")
 
     generate_rank_comparison()
     generate_steps_comparison()
-    generate_overfitting_test()
     generate_full_grid()
+    generate_training_progression()
 
     print("\n" + "="*50)
     print("Done! Assets saved to:", OUTPUT_DIR)
     print("="*50)
-    print("\nDownload with:")
-    print(f"  scp -r runpod:{OUTPUT_DIR} ./assets/")
+    print("\nFiles generated:")
+    for f in sorted(OUTPUT_DIR.glob("*.png")):
+        print(f"  {f.name}")
 
 
 if __name__ == "__main__":
