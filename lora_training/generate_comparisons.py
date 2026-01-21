@@ -10,7 +10,7 @@ Usage:
 """
 
 import torch
-from diffusers import Flux2KleinPipeline
+from diffusers import FluxPipeline
 from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -22,7 +22,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Load pipeline
 print("Loading FLUX.2 Klein Base...")
-pipe = Flux2KleinPipeline.from_pretrained(
+pipe = FluxPipeline.from_pretrained(
     "black-forest-labs/FLUX.2-klein-base-4B",
     torch_dtype=torch.bfloat16
 )
@@ -43,7 +43,11 @@ def generate_with_lora(prompt, lora_path=None):
     if lora_path and lora_path.exists():
         pipe.load_lora_weights(str(lora_path))
 
-    image = pipe(prompt, generator=get_generator(), **GEN_KWARGS).images[0]
+    image = pipe(
+        prompt=prompt,
+        generator=get_generator(),
+        **GEN_KWARGS
+    ).images[0]
 
     if lora_path and lora_path.exists():
         pipe.unload_lora_weights()
