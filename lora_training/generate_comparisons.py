@@ -19,21 +19,40 @@ OUTPUT_DIR = Path("/workspace/comparison_assets")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 
-def get_final_sample(lora_name):
+def get_final_sample(lora_name, prompt_idx=0):
     """Get the last sample image from a training run."""
     sample_dir = LORA_DIR / lora_name / "samples"
     if not sample_dir.exists():
         print(f"    Warning: No samples found for {lora_name}")
         return None
 
-    # Get all sample images, sort by name (which includes step number)
-    samples = sorted(sample_dir.glob("*.png"))
+    # Get all sample images (jpg or png)
+    samples = list(sample_dir.glob("*.jpg")) + list(sample_dir.glob("*.png"))
     if not samples:
-        print(f"    Warning: No PNG files in {sample_dir}")
+        print(f"    Warning: No image files in {sample_dir}")
         return None
 
+    # Parse step number from filename like "1768998807483__000000500_0.jpg"
+    # Format: {timestamp}__{step}_{prompt_idx}.jpg
+    def get_step(path):
+        try:
+            parts = path.stem.split('__')
+            if len(parts) >= 2:
+                step_part = parts[1].split('_')[0]
+                return int(step_part)
+        except:
+            pass
+        return 0
+
+    # Filter to just one prompt index and sort by step
+    filtered = [s for s in samples if f"_{prompt_idx}.jpg" in s.name or f"_{prompt_idx}.png" in s.name]
+    if not filtered:
+        filtered = samples  # fallback to all
+
+    filtered.sort(key=get_step)
+
     # Return the last (highest step) sample
-    return Image.open(samples[-1])
+    return Image.open(filtered[-1])
 
 
 def generate_rank_comparison():
@@ -202,8 +221,8 @@ def main():
     # List what we have
     print("\nAvailable LoRA outputs:")
     for d in sorted(LORA_DIR.iterdir()):
-        if d.is_dir():
-            samples = list((d / "samples").glob("*.png")) if (d / "samples").exists() else []
+        if d.is_dir() and (d / "samples").exists():
+            samples = list((d / "samples").glob("*.jpg")) + list((d / "samples").glob("*.png"))
             print(f"  {d.name}: {len(samples)} samples")
 
     generate_rank_comparison()
