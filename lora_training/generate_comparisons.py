@@ -10,7 +10,7 @@ Usage:
 """
 
 import torch
-from diffusers import FluxPipeline
+from diffusers import Flux2KleinPipeline
 from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -20,20 +20,26 @@ LORA_DIR = Path("/workspace/lora_outputs")
 OUTPUT_DIR = Path("/workspace/comparison_assets")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
+# Device and dtype
+device = "cuda"
+dtype = torch.bfloat16
+
 # Load pipeline
 print("Loading FLUX.2 Klein Base...")
-pipe = FluxPipeline.from_pretrained(
+pipe = Flux2KleinPipeline.from_pretrained(
     "black-forest-labs/FLUX.2-klein-base-4B",
-    torch_dtype=torch.bfloat16
+    torch_dtype=dtype
 )
-pipe.to("cuda")
+pipe.enable_model_cpu_offload()
 print("Pipeline ready!")
 
 # Fixed generation settings
 def get_generator():
-    return torch.Generator("cuda").manual_seed(42)
+    return torch.Generator(device=device).manual_seed(42)
 
 GEN_KWARGS = {
+    "height": 1024,
+    "width": 1024,
     "num_inference_steps": 50,
     "guidance_scale": 4.0,
 }
