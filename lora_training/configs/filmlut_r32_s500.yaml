@@ -1,0 +1,64 @@
+job: extension
+config:
+  name: filmlut_r32_s500
+  process:
+  - type: sd_trainer
+    training_folder: /workspace/lora_outputs
+    device: cuda:0
+    trigger_word: filmlut
+    network:
+      type: lora
+      linear: 32
+      linear_alpha: 32
+    save:
+      dtype: float16
+      save_every: 100
+      max_step_saves_to_keep: 3
+    datasets:
+    - folder_path: /workspace/training_dataset/dataset
+      caption_ext: txt
+      caption_dropout_rate: 0.05
+      shuffle_tokens: false
+      cache_latents_to_disk: true
+      resolution:
+      - 1024
+      - 1024
+    train:
+      batch_size: 1
+      steps: 500
+      gradient_accumulation_steps: 1
+      train_unet: true
+      train_text_encoder: false
+      gradient_checkpointing: true
+      noise_scheduler: flowmatch
+      optimizer: adamw8bit
+      lr: 0.0001
+      ema_config:
+        use_ema: true
+        ema_decay: 0.99
+      dtype: bf16
+    model:
+      name_or_path: black-forest-labs/FLUX.2-klein-base-4B
+      is_flux: true
+      quantize: true
+    sample:
+      sampler: flowmatch
+      sample_every: 100
+      width: 1024
+      height: 1024
+      prompts:
+      - filmlut, cinematic photo of a woman
+      - filmlut, landscape photograph of mountains
+      - filmlut, portrait of a man in natural light
+      - photo of a sunset over the ocean
+      neg: ''
+      seed: 42
+      walk_seed: true
+      guidance_scale: 4.0
+      sample_steps: 50
+meta:
+  rank: 32
+  alpha: 32
+  steps: 500
+  lr: 0.0001
+  trigger: filmlut
