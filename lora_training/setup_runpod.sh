@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Runpod Setup Script for LoRA Training
+# Runpod Setup Script for LoRA Training (FLUX.2 Klein Base)
 # Run this ONCE when you start your Runpod instance
 # =============================================================================
 
@@ -8,6 +8,7 @@ set -e
 
 echo "=========================================="
 echo "  Setting up LoRA Training Environment"
+echo "  Model: FLUX.2 Klein Base 4B"
 echo "=========================================="
 
 cd /workspace
@@ -16,7 +17,7 @@ cd /workspace
 # 1. Clone AI Toolkit
 # -----------------------------------------------------------------------------
 echo ""
-echo "[1/5] Cloning AI Toolkit..."
+echo "[1/4] Cloning AI Toolkit..."
 if [ ! -d "ai-toolkit" ]; then
     git clone https://github.com/ostris/ai-toolkit.git
     cd ai-toolkit
@@ -24,63 +25,64 @@ if [ ! -d "ai-toolkit" ]; then
     cd /workspace
 else
     echo "AI Toolkit already exists, pulling latest..."
-    cd ai-toolkit && git pull && cd /workspace
+    cd ai-toolkit && git pull && git submodule update --init --recursive && cd /workspace
 fi
 
 # -----------------------------------------------------------------------------
-# 2. Install dependencies
+# 2. Create venv and install dependencies
 # -----------------------------------------------------------------------------
 echo ""
-echo "[2/5] Installing dependencies..."
-cd ai-toolkit
+echo "[2/4] Setting up Python virtual environment..."
+cd /workspace/ai-toolkit
+
+if [ ! -d "venv" ]; then
+    python -m venv venv
+fi
+
+source venv/bin/activate
+
+echo "Installing dependencies (this may take a few minutes)..."
+pip install --upgrade pip
 pip install -r requirements.txt
 pip install peft accelerate bitsandbytes
+
 cd /workspace
 
 # -----------------------------------------------------------------------------
 # 3. Login to Hugging Face (for model access)
 # -----------------------------------------------------------------------------
 echo ""
-echo "[3/5] Hugging Face login..."
-echo "You'll need a HF token with access to FLUX.2 Klein Base"
+echo "[3/4] Hugging Face login..."
+echo "You need a HF token with access to FLUX.2 Klein Base"
+echo "Get one at: https://huggingface.co/settings/tokens"
+echo ""
 huggingface-cli login
 
 # -----------------------------------------------------------------------------
-# 4. Create directory structure
+# 4. Create output directories
 # -----------------------------------------------------------------------------
 echo ""
-echo "[4/5] Creating directories..."
-mkdir -p /workspace/lora_training/configs
-mkdir -p /workspace/lora_training/logs
+echo "[4/4] Creating directories..."
 mkdir -p /workspace/lora_outputs
-mkdir -p /workspace/training_dataset
+mkdir -p /workspace/lora_training/logs
 
 # -----------------------------------------------------------------------------
-# 5. Instructions
+# Done!
 # -----------------------------------------------------------------------------
 echo ""
-echo "[5/5] Setup complete!"
-echo ""
 echo "=========================================="
-echo "  NEXT STEPS"
+echo "  Setup Complete!"
 echo "=========================================="
 echo ""
-echo "1. Upload your training dataset to:"
-echo "   /workspace/training_dataset/"
-echo "   (should contain 'dataset/' folder with images + .txt captions)"
+echo "IMPORTANT: Always activate the venv before training:"
+echo "  source /workspace/ai-toolkit/venv/bin/activate"
 echo ""
-echo "2. Upload the lora_training folder:"
-echo "   /workspace/lora_training/"
-echo "   (contains configs/ and scripts)"
+echo "To start training all variants:"
+echo "  cd /workspace/lora_training"
+echo "  source /workspace/ai-toolkit/venv/bin/activate"
+echo "  python train_all.py"
 echo ""
-echo "3. Generate configs:"
-echo "   cd /workspace/lora_training"
-echo "   python generate_configs.py"
-echo ""
-echo "4. Run training:"
-echo "   bash run_all_training.sh"
-echo ""
-echo "5. Download results from:"
-echo "   /workspace/lora_outputs/"
+echo "Or run a single config:"
+echo "  python /workspace/ai-toolkit/run.py configs/filmlut_r8_s250.yaml"
 echo ""
 echo "=========================================="

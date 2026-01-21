@@ -39,8 +39,8 @@ config:
       dtype: bf16
     model:
       name_or_path: black-forest-labs/FLUX.2-klein-base-4B
-      is_flux: true
-      quantize: true
+      arch: flux2_klein_4b
+      low_vram: true
     sample:
       sampler: flowmatch
       sample_every: 100

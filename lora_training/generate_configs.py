@@ -100,8 +100,8 @@ def create_config(rank: int, steps: int, lr: float, run_name: str) -> dict:
                     },
                     "model": {
                         "name_or_path": MODEL_NAME,
-                        "is_flux": True,
-                        "quantize": True,
+                        "arch": "flux2_klein_4b",
+                        "low_vram": True,
                     },
                     "sample": {
                         "sampler": "flowmatch",
