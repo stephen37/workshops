@@ -10,7 +10,7 @@ Usage:
 """
 
 import torch
-from diffusers import FluxPipeline
+from diffusers import Flux2KleinPipeline
 from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -22,7 +22,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Load pipeline
 print("Loading FLUX.2 Klein Base...")
-pipe = FluxPipeline.from_pretrained(
+pipe = Flux2KleinPipeline.from_pretrained(
     "black-forest-labs/FLUX.2-klein-base-4B",
     torch_dtype=torch.bfloat16
 )
