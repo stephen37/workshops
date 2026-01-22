@@ -125,9 +125,9 @@ def generate_steps_comparison():
     print(f"  Saved: {OUTPUT_DIR / 'steps_comparison.png'}")
 
 
-def generate_full_grid():
-    """Generate full grid of all variants."""
-    print("\n=== Generating Full Grid ===")
+def generate_full_grid(prompt_idx=0):
+    """Generate full grid of all variants for a specific prompt index."""
+    print(f"\n=== Generating Full Grid (prompt {prompt_idx}) ===")
 
     ranks = [8, 16, 32, 64]
     steps_list = [250, 500, 1000]
@@ -137,7 +137,7 @@ def generate_full_grid():
         for steps in steps_list:
             lora_name = f"filmlut_r{rank}_s{steps}"
             print(f"  Loading r{rank}_s{steps}...")
-            images[(rank, steps)] = get_final_sample(lora_name)
+            images[(rank, steps)] = get_final_sample(lora_name, prompt_idx=prompt_idx)
 
     # Check what we have
     valid_count = sum(1 for img in images.values() if img is not None)
@@ -166,11 +166,12 @@ def generate_full_grid():
         axes[i, 0].annotate(f"Rank {rank}", xy=(-0.15, 0.5), xycoords='axes fraction',
                             fontsize=12, fontweight='bold', ha='right', va='center')
 
-    plt.suptitle("LoRA Grid: Rank × Steps", fontsize=16, fontweight='bold')
+    plt.suptitle(f"LoRA Grid: Rank × Steps (Prompt {prompt_idx})", fontsize=16, fontweight='bold')
     plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "full_grid.png", dpi=150, bbox_inches='tight')
+    filename = f"full_grid_prompt{prompt_idx}.png"
+    plt.savefig(OUTPUT_DIR / filename, dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"  Saved: {OUTPUT_DIR / 'full_grid.png'}")
+    print(f"  Saved: {OUTPUT_DIR / filename}")
 
 
 def generate_training_progression():
@@ -227,7 +228,11 @@ def main():
 
     generate_rank_comparison()
     generate_steps_comparison()
-    generate_full_grid()
+
+    # Generate grids for all prompt indices
+    for prompt_idx in range(4):  # 0, 1, 2, 3
+        generate_full_grid(prompt_idx=prompt_idx)
+
     generate_training_progression()
 
     print("\n" + "="*50)
