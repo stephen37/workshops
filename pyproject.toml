@@ -14,6 +14,7 @@ dependencies = [
     "protobuf>=6.33.4",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
+    "scipy>=1.17.0",
     "sentencepiece>=0.2.1",
     "torch>=2.9.1",
     "transformers>=4.57.6",

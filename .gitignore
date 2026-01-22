@@ -1,0 +1,31 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.python-version
+
+# Environment
+.env
+
+# IDE/Editor
+.claude/
+.ipynb_checkpoints/
+.DS_Store
+
+# Large files / archives
+*.zip
+*.tar.gz
+*.safetensors
+*.ckpt
+*.pt
+*.bin
+
+# Outputs (will be generated on Runpod)
+lora_training/outputs/
+lora_training/logs/
